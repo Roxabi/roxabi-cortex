@@ -3,9 +3,17 @@ name = "roxabi-cortex"
 version = "0.0.0"
 description = "roxabi-cortex monorepo workspace"
 requires-python = ">=3.13"
+dependencies = [
+    "cortex-insight",
+    "cortex-memory",
+]
 
 [tool.uv.workspace]
 members = ["packages/*"]
+
+[tool.uv.sources]
+cortex-insight = { workspace = true }
+cortex-memory = { workspace = true }
 
 [tool.ruff]
 line-length = 100
