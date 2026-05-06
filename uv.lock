@@ -1,0 +1,25 @@
+version = 1
+revision = 3
+requires-python = ">=3.13"
+
+[manifest]
+members = [
+    "cortex-insight",
+    "cortex-memory",
+    "roxabi-cortex",
+]
+
+[[package]]
+name = "cortex-insight"
+version = "0.0.0"
+source = { editable = "packages/insight" }
+
+[[package]]
+name = "cortex-memory"
+version = "0.0.0"
+source = { editable = "packages/memory" }
+
+[[package]]
+name = "roxabi-cortex"
+version = "0.0.0"
+source = { virtual = "." }

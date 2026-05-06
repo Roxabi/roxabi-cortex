@@ -1,0 +1,33 @@
+[Unit]
+Description=cortex-memory — warehouse + consolidation
+After=lyra-nats.service
+Requires=lyra-nats.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Container]
+Image=ghcr.io/roxabi/cortex-memory:staging
+Label=io.containers.autoupdate=registry
+ContainerName=cortex-memory
+Network=roxabi.network
+# Hardening — aligned with ADR-002 + ADR-053/054 lyra pattern
+NoNewPrivileges=true
+ReadOnly=true
+DropCapability=all
+# UserNS=keep-id maps container UID to host UID — owns ~/.cortex/*
+UserNS=keep-id:uid=1500,gid=1500
+EnvironmentFile=-%h/.cortex/env/memory.env
+Environment=NATS_URL=nats://lyra-nats:4222
+# TODO: uncomment once nkey-cortex-memory Podman secret is provisioned
+# Secret=nkey-cortex-memory,type=mount,target=memory.seed,mode=0400,uid=1500,gid=1500
+# Environment=NATS_NKEY_SEED_PATH=/run/secrets/memory.seed
+# Inline bind mount — avoids Quadlet .volume unit silent directory-creation bug (cf. lyra-hub.container)
+Volume=%h/.cortex/memory.duckdb:/data/memory.duckdb:Z
+
+[Service]
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=90
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+
+# Virtual environments
+.venv/
+venv/
+
+# NOTE: .python-version is intentionally NOT ignored (commit it)
+# NOTE: uv.lock is intentionally NOT ignored (CLI app — commit the lockfile)
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Analysis outputs (regenerable; may contain redacted-but-still-private content)
+data/
+*.sqlite
+*.parquet
+*.duckdb
+boilerplate.json
+sanitization_log.jsonl
+
+# Reports (regenerable)
+reports/
+
+# Sanitized working corpus
+# (canonical location is ~/.claude/analysis/sanitized/ — outside the repo)
+# Guard against accidental in-repo copies:
+sanitized/
+
+# Trufflehog output
+trufflehog_output.json

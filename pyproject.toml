@@ -1,0 +1,15 @@
+[project]
+name = "roxabi-cortex"
+version = "0.0.0"
+description = "roxabi-cortex monorepo workspace"
+requires-python = ">=3.13"
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.pyright]
+typeCheckingMode = "strict"
