@@ -1,3 +1,4 @@
+@.claude/stack.yml
 @~/.claude/shared/global-patterns.md
 
 # CLAUDE.md — Instructions for Claude Code (roxabi-cortex)

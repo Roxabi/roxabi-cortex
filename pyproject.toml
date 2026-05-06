@@ -13,3 +13,15 @@ target-version = "py313"
 
 [tool.pyright]
 typeCheckingMode = "strict"
+exclude = [
+    ".venv",
+    "tools",
+]
+
+[dependency-groups]
+dev = [
+    "pip-licenses>=5.5.5",
+    "pre-commit>=4.6.0",
+    "pyyaml>=6.0.3",
+    "ruff>=0.15.12",
+]

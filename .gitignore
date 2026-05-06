@@ -47,3 +47,6 @@ sanitized/
 
 # Trufflehog output
 trufflehog_output.json
+.env
+
+.claude/dev-core.yml

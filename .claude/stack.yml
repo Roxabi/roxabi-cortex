@@ -1,0 +1,99 @@
+# .claude/stack.yml — dev-core stack configuration for roxabi-cortex
+# Python 3.13 monorepo (uv workspace) — packages/insight + packages/memory.
+# Containerised via Podman + Quadlet (ADR-002). No frontend, no web backend.
+# See CLAUDE.md, docs/ARCHITECTURE.md, docs/adr/ for design context.
+
+schema_version: "1.0"
+
+runtime: python
+package_manager: uv
+
+backend:
+  framework: none                  # services are CLI + NATS workers, not HTTP frameworks
+  orm: none                        # DuckDB via direct driver (ADR-011)
+  path: packages                   # uv workspace root — services live in packages/{insight,memory}
+
+frontend:
+  framework: none
+  path: ""
+  ui_package: ""
+  ui_src: ""
+
+shared:
+  types: ""
+  ui: ""
+  config: ""
+
+build:
+  orchestrator: none               # uv workspace replaces turbo/nx
+  orchestrator_config: ""
+  formatter: ruff
+  formatter_config: pyproject.toml
+  formatter_fix_cmd: "uv run ruff format && uv run ruff check --fix"
+
+testing:
+  unit: pytest
+  e2e: none
+
+hooks:
+  tool: pre-commit                 # python-native, aligns with auto→python mapping
+
+lsp:
+  enabled: true
+  server: pyright
+
+deploy:
+  platform: none                   # Podman + Quadlet (systemd --user) — see ADR-002, Makefile
+  secrets_cmd: ""
+
+docs:
+  framework: none                  # plain markdown (docs/ARCHITECTURE.md, docs/adr/)
+  path: docs
+  format: md
+
+# Quality gates — Python code-hygiene contracts.
+quality_gates:
+  file_length:
+    enabled: true
+    max_lines: 300
+    globs: ["packages/*/src/**/*.py"]
+    exemptions_file: tools/file_exemptions.txt
+  folder_size:
+    enabled: true
+    max_files: 12
+    globs: ["packages/*/src/**"]
+    exemptions_file: tools/folder_exemptions.txt
+  import_layers:
+    enabled: false                 # enable once package layers stabilise (ADR-008)
+    stage: pre-push
+    config: .importlinter
+
+commands:
+  dev: "uv run cortex-insight --help && uv run cortex-memory --help"
+  build: "uv build"
+  test: "uv run pytest"
+  lint: "uv run ruff check"
+  typecheck: "uv run pyright"
+  format: "uv run ruff format && uv run ruff check --fix"
+  install: "uv sync"
+
+artifacts:
+  analyses: artifacts/analyses
+  specs: artifacts/specs
+  frames: artifacts/frames
+  plans: artifacts/plans
+
+# Plain-markdown docs — paths relative to project root.
+# Files may not exist yet (design phase); /seed-docs will populate stubs.
+standards:
+  backend: docs/standards/backend-patterns.md
+  frontend: ""
+  testing: docs/standards/testing.md
+  code_review: docs/standards/code-review.md
+  architecture: docs/ARCHITECTURE.md
+  configuration: docs/standards/configuration.md
+  deployment: docs/guides/deployment.md
+  troubleshooting: docs/guides/troubleshooting.md
+  issue_management: docs/processes/issue-management.md
+  dev_process: docs/processes/dev-process.md
+  contributing: docs/contributing.md

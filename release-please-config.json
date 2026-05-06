@@ -1,0 +1,17 @@
+{
+  "release-type": "python",
+  "target-branch": "main",
+  "separate-pull-requests": true,
+  "packages": {
+    "packages/insight": {
+      "component": "cortex-insight",
+      "package-name": "cortex-insight",
+      "tag-separator": "/"
+    },
+    "packages/memory": {
+      "component": "cortex-memory",
+      "package-name": "cortex-memory",
+      "tag-separator": "/"
+    }
+  }
+}
