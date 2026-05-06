@@ -172,6 +172,8 @@ Ops : `make cortex-insight {start,stop,reload,logs}` · idem memory.
 
 ## Repo
 
+Path local : `~/projects/roxabi-cortex/` · remote : `git@github.com:Roxabi/roxabi-cortex.git` (public).
+
 ```
 roxabi-cortex/
 ├── pyproject.toml                   # uv workspace
@@ -230,9 +232,7 @@ Voir `docs/adr/README.md` pour l'index complet. Décisions structurantes :
 Bloquants identifiés avant implémentation :
 
 - ADR-009 (taxonomie) à régler — bloque DATA-MODEL memory
-- Spec actuel `artifacts/specs/spec-roxabi-insight.md` à scinder en `spec-cortex-insight.md` + `spec-cortex-memory.md`
-- Repo à renommer `roxabi-insight` → `roxabi-cortex`
-- Contracts à étendre dans `lyra/packages/roxabi-contracts/`
+- Contracts à étendre dans `lyra/packages/roxabi-contracts/` (issue #3, blocked-by #2)
 
 Non-bloquants (peuvent être traités en parallèle ou en Phase 2+) :
 

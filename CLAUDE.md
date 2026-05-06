@@ -17,7 +17,7 @@ Let:
 
 ## TL;DR
 
-- Repo actuel = `roxabi-insight/` ; renommage cible = `roxabi-cortex/` (pas encore fait)
+- Repo = `Roxabi/roxabi-cortex` (public) · path local = `~/projects/roxabi-cortex/`
 - Découpage logique : insight (raw + encodage) / memory (graphe + consolidation + assemble + actuate) — ADR-003
 - Contrat publish entre les deux : `Observation` typée — ADR-005
 - Producteurs externes (Claude Code, mail, telegram, NATS Lyra) → insight uniquement — ADR-004
@@ -31,9 +31,7 @@ Let:
 
 Bloquants avant implémentation :
 - ADR-009 (taxonomie entités) à régler via interview biomimétique
-- Repo à renommer
-- Spec actuel à scinder en `spec-cortex-{insight,memory}.md`
-- Contracts à étendre côté `lyra/packages/roxabi-contracts/`
+- Contracts à étendre côté `lyra/packages/roxabi-contracts/` (issue #3, blocked-by #2)
 
 ## Stack
 

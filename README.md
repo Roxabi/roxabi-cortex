@@ -2,7 +2,6 @@
 
 Exocortex personnel — capture multi-source, mémoire structurée vivante, sert les agents.
 
-> Repo encore nommé `roxabi-insight` ; renommage en `roxabi-cortex` à venir (cf. ADR-001).
 > **Status :** design phase finalisée 2026-05-06 · implémentation pas commencée.
 
 ---
