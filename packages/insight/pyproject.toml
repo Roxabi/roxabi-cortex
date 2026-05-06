@@ -1,6 +1,6 @@
 [project]
 name = "cortex-insight"
-version = "0.0.0"
+version = "0.1.0"
 description = "cortex-insight — lake + ETL service for roxabi-cortex"
 requires-python = ">=3.13"
 dependencies = []
