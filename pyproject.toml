@@ -1,6 +1,7 @@
 [project]
+license = { text = "AGPL-3.0-or-later" }
 name = "roxabi-cortex"
-version = "0.0.0"
+version = "0.0.1"
 description = "roxabi-cortex monorepo workspace"
 requires-python = ">=3.13"
 dependencies = [
