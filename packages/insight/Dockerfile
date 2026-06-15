@@ -22,8 +22,8 @@ FROM ghcr.io/roxabi/base:latest AS runtime
 
 USER root
 
-# UID 1500 pinned per ADR-053 (Quadlet container UID stability)
-RUN useradd -u 1500 -m cortex && mkdir -p /home/cortex/.cortex
+# UID 1504 per Roxabi UID registry S10 (docs/container-deployment-standard.md) — 1500 = factory
+RUN useradd -u 1504 -m cortex && mkdir -p /home/cortex/.cortex
 
 COPY --from=builder --chown=cortex:cortex /app /app
 
