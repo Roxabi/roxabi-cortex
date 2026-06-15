@@ -35,7 +35,7 @@ Déployer cortex-insight et cortex-memory sous le **même pattern que les servic
 | Lifecycle | systemd (Quadlet auto-translaté) sur prod (M₁) · idem sur dev (M₂) |
 | Réseau | join `roxabi.network` Podman pour parler à `lyra-nats:4222` |
 | Secrets | Podman secrets pour nkeys NATS (`nkey-cortex-insight`, `nkey-cortex-memory`) |
-| Hardening | `NoNewPrivileges=true`, `ReadOnly=true`, `DropCapability=all`, `UserNS=keep-id:uid=1500,gid=1500` |
+| Hardening | `NoNewPrivileges=true`, `ReadOnly=true`, `DropCapability=all`, `UserNS=keep-id:uid=1504,gid=1504` |
 | Storage | DuckDB en bind mount `%h/.cortex/{insight,memory}.duckdb` (persistance hors image) |
 | Ops user-facing | `make cortex-insight {start,stop,reload,logs}` + idem memory · jamais `supervisorctl` ni `podman` direct |
 
