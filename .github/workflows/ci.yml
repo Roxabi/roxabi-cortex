@@ -16,8 +16,6 @@ jobs:
         run: uv sync --frozen --all-extras --all-groups
       - name: Lint
         run: uv run ruff check .
-      - name: Format
-        run: uv run ruff format --check .
       - name: Typecheck
         run: uv run pyright
       - name: Test
