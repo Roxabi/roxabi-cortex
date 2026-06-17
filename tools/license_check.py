@@ -106,8 +106,7 @@ def get_packages() -> list[dict]:
         return json.loads(result.stdout)
     except FileNotFoundError:
         print(
-            "[license-check] pip-licenses not found.\n"
-            "  Install it: uv add --dev pip-licenses",
+            "[license-check] pip-licenses not found.\n  Install it: uv add --dev pip-licenses",
             file=sys.stderr,
         )
         sys.exit(2)
