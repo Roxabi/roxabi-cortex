@@ -1,11 +1,9 @@
 @.claude/stack.yml
-@~/.claude/shared/global-patterns.md
 
 # CLAUDE.md — Instructions for Claude Code (roxabi-cortex)
 
 Let:
   P  := CLAUDE.md path
-  SC := `~/.claude/shared/global-patterns.md` (always-on : decision protocol, agent discipline, /dev pipeline, worktree, parallel execution, git, project overrides)
   EC := `~/projects/CLAUDE.md` (ecosystem : release convention, supervisor pattern, cross-project deps)
   AR := `docs/ARCHITECTURE.md` (vue d'ensemble · réfère aux ADRs)
   DL := `docs/adr/` (decision log · SSoT des décisions architecturales)

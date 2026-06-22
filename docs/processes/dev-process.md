@@ -5,7 +5,7 @@ description: /dev pipeline, tier model, worktree rules, and release conventions 
 
 # Development Process
 
-All work flows through `/dev #N`. Full behavioral rules in `~/.claude/shared/global-patterns.md`.
+All work flows through `/dev #N`. Behavioral rules: project `CLAUDE.md` TL;DR + dev-core skills on demand.
 
 ## Branch Strategy
 
