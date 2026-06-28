@@ -50,3 +50,5 @@ trufflehog_output.json
 .env
 
 .claude/dev-core.yml
+# CocoIndex Code (ccc)
+/.cocoindex_code/
