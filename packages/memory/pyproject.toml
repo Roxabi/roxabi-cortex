@@ -1,6 +1,6 @@
 [project]
 name = "cortex-memory"
-version = "0.0.0"
+version = "0.1.0"
 description = "cortex-memory — warehouse + consolidation service for roxabi-cortex"
 requires-python = ">=3.13"
 dependencies = []
