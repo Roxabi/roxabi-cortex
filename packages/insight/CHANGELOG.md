@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/Roxabi/roxabi-cortex/compare/cortex-insight/v0.1.0...cortex-insight/v0.1.1) (2026-07-02)
+
+
+### Bug Fixes
+
+* **deploy:** pin cortex container UID to 1504 (avoid factory 1500 collision) ([bf4f7fc](https://github.com/Roxabi/roxabi-cortex/commit/bf4f7fc08dd3ccd8f17b97dcb1cf19e861bf4d9b))
+* **deploy:** pin cortex container UID to 1504 (avoid factory 1500 collision) ([4580a4c](https://github.com/Roxabi/roxabi-cortex/commit/4580a4c448fa86cb7bd0a8fdf442cfc899ca8e97))
+
 ## 0.1.0 (2026-05-27)
 
 
