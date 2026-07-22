@@ -27,7 +27,8 @@ Secret=factory-nats-cortex-memory,type=mount,target=cortex-memory.seed,mode=0400
 Environment=NATS_NKEY_SEED_PATH=/run/secrets/cortex-memory.seed
 # Directory bind for SQLite + WAL siblings
 Volume=%h/.cortex/:/data/:Z
-Exec=cortex-memory serve --db /data/memory.db
+# Args only — ENTRYPOINT is already cortex-memory (avoid double command → typer exit 2)
+Exec=serve --db /data/memory.db
 
 [Service]
 Restart=on-failure
