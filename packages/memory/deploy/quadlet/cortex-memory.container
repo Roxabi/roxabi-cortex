@@ -1,7 +1,7 @@
 [Unit]
-Description=cortex-memory — warehouse + consolidation
-After=lyra-nats.service
-Requires=lyra-nats.service
+Description=cortex-memory — long-term memory NATS satellite (ADR-087)
+After=factory-nats.service
+Requires=factory-nats.service
 StartLimitIntervalSec=60
 StartLimitBurst=5
 
@@ -10,19 +10,22 @@ Image=ghcr.io/roxabi/cortex-memory:staging
 Label=io.containers.autoupdate=registry
 ContainerName=cortex-memory
 Network=roxabi.network
-# Hardening — aligned with ADR-002 + ADR-053/054 lyra pattern
+# Hardening — aligned with factory satellites
 NoNewPrivileges=true
 ReadOnly=true
 DropCapability=all
-# UserNS=keep-id maps container UID to host UID — owns ~/.cortex/*
-UserNS=keep-id:uid=1500,gid=1500
+# UID 1504 = cortex (Dockerfile); keep-id so host owns ~/.cortex/*
+UserNS=keep-id:uid=1504,gid=1504
 EnvironmentFile=-%h/.cortex/env/memory.env
-Environment=NATS_URL=nats://lyra-nats:4222
-# TODO: uncomment once nkey-cortex-memory Podman secret is provisioned
-# Secret=nkey-cortex-memory,type=mount,target=memory.seed,mode=0400,uid=1500,gid=1500
-# Environment=NATS_NKEY_SEED_PATH=/run/secrets/memory.seed
-# Inline bind mount — avoids Quadlet .volume unit silent directory-creation bug (cf. lyra-hub.container)
-Volume=%h/.cortex/memory.duckdb:/data/memory.duckdb:Z
+Environment=NATS_URL=nats://factory-nats:4222
+Environment=CORTEX_MEMORY_DB=/data/memory.db
+# NATS nkey — provision via: factory-genkeys --add-identity cortex-memory
+# then: podman secret create factory-nats-cortex-memory ~/.roxabi/factory/nkeys/cortex-memory.seed
+Secret=factory-nats-cortex-memory,type=mount,target=cortex-memory.seed,mode=0400,uid=1504,gid=1504
+Environment=NATS_NKEY_SEED_PATH=/run/secrets/cortex-memory.seed
+# SQLite data dir (WAL siblings need directory bind)
+Volume=%h/.cortex/:/data/:Z
+Exec=cortex-memory serve --db /data/memory.db
 
 [Service]
 Restart=on-failure

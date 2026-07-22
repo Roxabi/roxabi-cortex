@@ -1,9 +1,16 @@
 [project]
 name = "cortex-memory"
-version = "0.0.0"
-description = "cortex-memory — warehouse + consolidation service for roxabi-cortex"
-requires-python = ">=3.13"
-dependencies = []
+version = "0.1.0"
+description = "cortex-memory — long-term memory satellite (MVP NATS capture/search/assemble)"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.15",
+    "roxabi-contracts",
+    "roxabi-nats",
+    "nats-py>=2.6,<3",
+    "nkeys>=0.1",
+    "pydantic>=2",
+]
 
 [project.scripts]
 cortex-memory = "cortex_memory.cli:app"
@@ -14,3 +21,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cortex_memory"]
+
+# Prefer local monorepo packages during development (memory contracts not yet on staging).
+# Switch to git+subdirectory once contracts land on staging/main.
+[tool.uv.sources]
+roxabi-contracts = { path = "../../../roxabi-factory/packages/roxabi-contracts", editable = true }
+roxabi-nats = { path = "../../../roxabi-factory/packages/roxabi-nats", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["src"]

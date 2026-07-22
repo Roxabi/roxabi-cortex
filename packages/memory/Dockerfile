@@ -1,41 +1,39 @@
 # syntax=docker/dockerfile:1
-# cortex-memory — warehouse + consolidation service
-# Pattern: multi-stage builder + runtime · base ghcr.io/roxabi/base · cf. ADR-002
+# cortex-memory — long-term memory NATS satellite
+# Pattern: multi-stage builder + runtime · base ghcr.io/roxabi/base
 
-FROM python:3.13-slim AS builder
+FROM python:3.12-slim AS builder
 
-# Install system deps (git needed for GitHub-sourced Python deps)
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
-# Layer caching: copy lockfile + pyproject first, then source
+# Local monorepo packages (path sources in pyproject) — copy when building
+# from a context that includes factory packages, OR rely on git staging pins.
 COPY pyproject.toml ./
 COPY src/ src/
-RUN uv sync --no-dev
+# If building with context that vendors contracts: COPY factory-contracts/ ...
+RUN uv sync --no-dev --no-editable
 
-# ── Runtime stage ────────────────────────────────────────────────────────────
 FROM ghcr.io/roxabi/base:latest AS runtime
 
 USER root
 
-# UID 1504 per Roxabi UID registry S10 (docs/container-deployment-standard.md) — 1500 = factory
-RUN useradd -u 1504 -m cortex && mkdir -p /home/cortex/.cortex
+# UID 1504 per Roxabi UID registry — distinct from factory (1500)
+RUN useradd -u 1504 -m cortex && mkdir -p /home/cortex/.cortex /data \
+    && chown -R cortex:cortex /home/cortex /data
 
 COPY --from=builder --chown=cortex:cortex /app /app
 
 WORKDIR /app
 
 ENV PATH="/app/.venv/bin:$PATH"
+ENV CORTEX_MEMORY_DB=/data/memory.db
 
 USER cortex
 
-# TODO: HEALTHCHECK once health endpoint is implemented
-# HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-#   CMD cortex-memory health || exit 1
-
-# TODO: ENTRYPOINT once cli.py is implemented
-ENTRYPOINT ["python", "-c", "print('cortex-memory stub — implement me')"]
+ENTRYPOINT ["cortex-memory"]
+CMD ["serve", "--db", "/data/memory.db"]
