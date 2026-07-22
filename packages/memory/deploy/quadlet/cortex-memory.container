@@ -16,7 +16,9 @@ ReadOnly=true
 DropCapability=all
 # keep-id:uid=1500 maps container user → host mickael (owns ~/.cortex)
 UserNS=keep-id:uid=1500,gid=1500
-EnvironmentFile=-%h/.cortex/env/memory.env
+# Note: do not use EnvironmentFile=-%h/... — Podman 5.7 treats the leading
+# "-" as a path prefix (same bug as factory-hub.container). Optional env:
+# create %h/.cortex/env/memory.env and set EnvironmentFile= without "-".
 Environment=NATS_URL=nats://factory-nats:4222
 Environment=CORTEX_MEMORY_DB=/data/memory.db
 # Seed: podman secret create factory-nats-cortex-memory \
