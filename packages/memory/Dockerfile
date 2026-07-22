@@ -1,6 +1,13 @@
 # syntax=docker/dockerfile:1
 # cortex-memory — long-term memory NATS satellite
-# Pattern: multi-stage builder + runtime · base ghcr.io/roxabi/base
+#
+# Build (with factory monorepo next door for contracts/nats):
+#   podman build -f packages/memory/Dockerfile \
+#     --build-context factory=../roxabi-factory \
+#     -t ghcr.io/roxabi/cortex-memory:staging \
+#     packages/memory
+#
+# Or from packages/memory with factory packages vendored under ./vendor/.
 
 FROM python:3.12-slim AS builder
 
@@ -11,19 +18,44 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
-# Local monorepo packages (path sources in pyproject) — copy when building
-# from a context that includes factory packages, OR rely on git staging pins.
+# Prefer additional build-context "factory" (roxabi-factory monorepo root).
+# Fallback: vendor/ copied into the memory package context.
+COPY --from=factory packages/roxabi-contracts /deps/roxabi-contracts
+COPY --from=factory packages/roxabi-nats /deps/roxabi-nats
+
 COPY pyproject.toml ./
 COPY src/ src/
-# If building with context that vendors contracts: COPY factory-contracts/ ...
+
+# Point uv sources at vendored workspace packages for a hermetic image build.
+RUN python3 - <<'PY'
+from pathlib import Path
+p = Path("pyproject.toml")
+text = p.read_text()
+# Replace path/git sources for roxabi-* with /deps paths
+import re
+text = re.sub(
+    r"roxabi-contracts\s*=\s*\{[^}]+\}",
+    'roxabi-contracts = { path = "/deps/roxabi-contracts" }',
+    text,
+)
+text = re.sub(
+    r"roxabi-nats\s*=\s*\{[^}]+\}",
+    'roxabi-nats = { path = "/deps/roxabi-nats" }',
+    text,
+)
+p.write_text(text)
+print(p.read_text())
+PY
+
 RUN uv sync --no-dev --no-editable
 
 FROM ghcr.io/roxabi/base:latest AS runtime
 
 USER root
 
-# UID 1504 per Roxabi UID registry — distinct from factory (1500)
-RUN useradd -u 1504 -m cortex && mkdir -p /home/cortex/.cortex /data \
+# Match factory hub keep-id mapping (uid 1500 → host user)
+RUN useradd -u 1500 -m cortex \
+    && mkdir -p /home/cortex/.cortex /data \
     && chown -R cortex:cortex /home/cortex /data
 
 COPY --from=builder --chown=cortex:cortex /app /app

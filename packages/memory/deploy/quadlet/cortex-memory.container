@@ -10,20 +10,20 @@ Image=ghcr.io/roxabi/cortex-memory:staging
 Label=io.containers.autoupdate=registry
 ContainerName=cortex-memory
 Network=roxabi.network
-# Hardening — aligned with factory satellites
+# Hardening — same pattern as factory satellites
 NoNewPrivileges=true
 ReadOnly=true
 DropCapability=all
-# UID 1504 = cortex (Dockerfile); keep-id so host owns ~/.cortex/*
-UserNS=keep-id:uid=1504,gid=1504
+# keep-id:uid=1500 maps container user → host mickael (owns ~/.cortex)
+UserNS=keep-id:uid=1500,gid=1500
 EnvironmentFile=-%h/.cortex/env/memory.env
 Environment=NATS_URL=nats://factory-nats:4222
 Environment=CORTEX_MEMORY_DB=/data/memory.db
-# NATS nkey — provision via: factory-genkeys --add-identity cortex-memory
-# then: podman secret create factory-nats-cortex-memory ~/.roxabi/factory/nkeys/cortex-memory.seed
-Secret=factory-nats-cortex-memory,type=mount,target=cortex-memory.seed,mode=0400,uid=1504,gid=1504
+# Seed: podman secret create factory-nats-cortex-memory \
+#   ~/.roxabi/factory/nkeys/cortex-memory.seed
+Secret=factory-nats-cortex-memory,type=mount,target=cortex-memory.seed,mode=0400,uid=1500,gid=1500
 Environment=NATS_NKEY_SEED_PATH=/run/secrets/cortex-memory.seed
-# SQLite data dir (WAL siblings need directory bind)
+# Directory bind for SQLite + WAL siblings
 Volume=%h/.cortex/:/data/:Z
 Exec=cortex-memory serve --db /data/memory.db
 
