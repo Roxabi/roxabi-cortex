@@ -6,7 +6,7 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Container]
-Image=ghcr.io/roxabi/cortex-memory:staging
+Image=ghcr.io/roxabi/cortex-memory:main
 Label=io.containers.autoupdate=registry
 ContainerName=cortex-memory
 Network=roxabi.network
