@@ -22,11 +22,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/cortex_memory"]
 
-# Prefer local monorepo packages during development (memory contracts not yet on staging).
-# Switch to git+subdirectory once contracts land on staging/main.
+# Resolved from git: a sibling-directory path only exists on a developer
+# machine, so CI could never build this package.
 [tool.uv.sources]
-roxabi-contracts = { path = "../../../roxabi-factory/packages/roxabi-contracts", editable = true }
-roxabi-nats = { path = "../../../roxabi-factory/packages/roxabi-nats", editable = true }
+roxabi-contracts = { git = "https://github.com/Roxabi/roxabi-factory.git", subdirectory = "packages/roxabi-contracts", branch = "staging" }
+roxabi-nats = { git = "https://github.com/Roxabi/roxabi-factory.git", subdirectory = "packages/roxabi-nats", branch = "staging" }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

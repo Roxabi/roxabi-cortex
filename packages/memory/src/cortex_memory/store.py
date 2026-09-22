@@ -12,7 +12,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
@@ -40,6 +40,24 @@ def estimate_tokens(text: str) -> int:
     """Rough token estimate (~1.3 words/token heuristic inverted)."""
     words = len(_TOKEN_RE.findall(text))
     return max(1, int(words * 1.3)) if text.strip() else 0
+
+
+def parse_metadata(raw: Any) -> dict[str, Any]:
+    """Decode an entries.metadata JSON object into ``dict[str, Any]``.
+
+    ``json.loads`` is typed ``Any``, and a bare ``{}`` is ``dict[Unknown, Unknown]``
+    under pyright strict. Falsy input and non-objects become ``{}``, matching the
+    previous inline decoder.
+    """
+    if not raw:
+        return {}
+    try:
+        loaded: object = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(loaded, dict):
+        return {}
+    return cast(dict[str, Any], loaded)
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,13 +229,7 @@ class MemoryStore:
 
     @staticmethod
     def _row_to_entry(row: sqlite3.Row) -> Entry:
-        meta_raw = row["metadata"]
-        try:
-            meta = json.loads(meta_raw) if meta_raw else {}
-        except json.JSONDecodeError:
-            meta = {}
-        if not isinstance(meta, dict):
-            meta = {}
+        meta = parse_metadata(row["metadata"])
         return Entry(
             id=int(row["id"]),
             namespace=str(row["namespace"]),

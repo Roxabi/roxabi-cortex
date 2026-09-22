@@ -1,10 +1,13 @@
 {
-  "_comment": "Project-local license policy. Extends the dev-core canonical allowed-license set in tools/license_check.py.",
+  "_comment": "Project-local license policy. Extends the dev-core canonical allowed-license set in tools/license_check.py. roxabi-contracts and roxabi-nats are first-party AGPL-3.0-or-later (same license as this repo). cffi is MIT-0, which the canonical set does not list.",
   "allowlist": [
     "typing_extensions",
     "packaging",
     "cortex-insight",
-    "cortex-memory"
+    "cortex-memory",
+    "cffi",
+    "roxabi-contracts",
+    "roxabi-nats"
   ],
   "overrides": {}
 }

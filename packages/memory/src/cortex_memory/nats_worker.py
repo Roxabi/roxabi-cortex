@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from cortex_memory.store import estimate_tokens
+from nats.aio.msg import Msg
 from roxabi_contracts.envelope import CONTRACT_VERSION
 from roxabi_contracts.memory import (
     SUBJECTS,
@@ -21,6 +21,8 @@ from roxabi_contracts.memory import (
     SearchResponse,
 )
 from roxabi_nats.adapter_base import NatsAdapterBase
+
+from cortex_memory.store import estimate_tokens
 
 if TYPE_CHECKING:
     from cortex_memory.store import MemoryStore
@@ -42,7 +44,60 @@ def _env_from(payload: dict[str, Any], request_id: str) -> dict[str, Any]:
     }
 
 
-class CaptureWorker(NatsAdapterBase):
+def _capture_metadata(req: CaptureRequest) -> dict[str, Any]:
+    """``CaptureRequest.metadata`` is a bare ``dict`` upstream (roxabi-factory#2348)."""
+    raw = getattr(req, "metadata")
+    if not isinstance(raw, dict):
+        return {}
+    return cast(dict[str, Any], raw)
+
+
+class _TypedNatsWorker(NatsAdapterBase):
+    """Boundary over ``NatsAdapterBase``, whose public params are unannotated.
+
+    ``subject`` / ``queue_group`` / ``envelope_name`` / ``schema_version`` and
+    ``reply(msg)`` leak ``Unknown`` under pyright strict (roxabi-factory#2348).
+    Delete this subclass once those signatures are annotated.
+    """
+
+    subject: str
+
+    def __init__(
+        self,
+        subject: str,
+        queue_group: str,
+        envelope_name: str,
+        schema_version: int,
+        *,
+        timeout: float = 30.0,
+        heartbeat_subject: str | None = None,
+        identity_name: str | None = None,
+        wait_ready: bool = False,
+    ) -> None:
+        # NatsAdapterBase.__init__ params are unannotated (roxabi-factory#2348).
+        super().__init__(  # pyright: ignore[reportUnknownMemberType]
+            subject,
+            queue_group,
+            envelope_name,
+            schema_version,
+            timeout=timeout,
+            heartbeat_subject=heartbeat_subject,
+            identity_name=identity_name,
+            wait_ready=wait_ready,
+        )
+        self.subject = subject
+
+    async def reply(self, msg: Msg, data: bytes) -> None:
+        """Publish ``data`` to ``msg.reply`` when a reply subject exists.
+
+        Same body as ``NatsAdapterBase.reply``. Overridden so callers are not
+        typed against the unannotated ``msg`` parameter (roxabi-factory#2348).
+        """
+        if msg.reply and self._nc is not None:
+            await self._nc.publish(msg.reply, data)
+
+
+class CaptureWorker(_TypedNatsWorker):
     def __init__(self, store: MemoryStore, *, identity_name: str = "cortex-memory") -> None:
         super().__init__(
             subject=SUBJECTS.capture,
@@ -56,7 +111,7 @@ class CaptureWorker(NatsAdapterBase):
         )
         self._store = store
 
-    async def handle(self, msg, payload: dict) -> None:
+    async def handle(self, msg: Msg, payload: dict[str, Any]) -> None:
         t0 = time.monotonic()
         try:
             req = CaptureRequest.model_validate(payload)
@@ -72,7 +127,7 @@ class CaptureWorker(NatsAdapterBase):
                 namespace=req.namespace,
                 url=req.url,
                 tags=req.tags,
-                metadata=req.metadata,
+                metadata=_capture_metadata(req),
             )
             resp = CaptureResponse(
                 **_env_from(payload, req.request_id),
@@ -93,7 +148,7 @@ class CaptureWorker(NatsAdapterBase):
         await self.reply(msg, resp.model_dump_json().encode())
 
 
-class SearchWorker(NatsAdapterBase):
+class SearchWorker(_TypedNatsWorker):
     def __init__(self, store: MemoryStore, *, identity_name: str = "cortex-memory") -> None:
         super().__init__(
             subject=SUBJECTS.query_search,
@@ -106,7 +161,7 @@ class SearchWorker(NatsAdapterBase):
         )
         self._store = store
 
-    async def handle(self, msg, payload: dict) -> None:
+    async def handle(self, msg: Msg, payload: dict[str, Any]) -> None:
         t0 = time.monotonic()
         try:
             req = SearchRequest.model_validate(payload)
@@ -150,7 +205,7 @@ class SearchWorker(NatsAdapterBase):
         await self.reply(msg, resp.model_dump_json().encode())
 
 
-class AssembleWorker(NatsAdapterBase):
+class AssembleWorker(_TypedNatsWorker):
     def __init__(self, store: MemoryStore, *, identity_name: str = "cortex-memory") -> None:
         super().__init__(
             subject=SUBJECTS.query_assemble,
@@ -163,7 +218,7 @@ class AssembleWorker(NatsAdapterBase):
         )
         self._store = store
 
-    async def handle(self, msg, payload: dict) -> None:
+    async def handle(self, msg: Msg, payload: dict[str, Any]) -> None:
         t0 = time.monotonic()
         try:
             req = AssembleRequest.model_validate(payload)
