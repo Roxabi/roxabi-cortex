@@ -6,11 +6,18 @@ import asyncio
 import logging
 import os
 from pathlib import Path
+from typing import cast
 
 import typer
 
 app = typer.Typer(help="cortex-memory — long-term memory satellite (MVP)")
 log = logging.getLogger("cortex_memory")
+
+
+def _as_str_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in cast(list[object], value)]
 
 
 def _default_db() -> Path:
@@ -57,7 +64,7 @@ async def _serve(nats_url: str, db_path: Path) -> None:
 
     # NatsAdapterBase.run() connects and blocks until signal. Run three
     # workers as tasks sharing process lifetime via first that exits.
-    async def _run(worker, name: str) -> None:
+    async def _run(worker: CaptureWorker | SearchWorker | AssembleWorker, name: str) -> None:
         log.info("starting %s subject=%s", name, worker.subject)
         await worker.run(nats_url)
 
@@ -97,10 +104,9 @@ def import_vault(
     limit: int = typer.Option(0, "--limit", help="Max rows (0 = all)"),
 ) -> None:
     """One-shot import from ~/.roxabi-vault/vault.db into cortex store."""
-    import json
     import sqlite3
 
-    from cortex_memory.store import MemoryStore
+    from cortex_memory.store import MemoryStore, parse_metadata
 
     if not vault_db.exists():
         typer.echo(f"vault db not found: {vault_db}", err=True)
@@ -117,14 +123,9 @@ def import_vault(
     n = 0
     for row in rows:
         meta_raw = row["metadata"] if "metadata" in row.keys() else "{}"
-        try:
-            meta = json.loads(meta_raw) if meta_raw else {}
-        except json.JSONDecodeError:
-            meta = {}
-        if not isinstance(meta, dict):
-            meta = {}
+        meta = parse_metadata(meta_raw)
         url = str(meta.get("url") or "")
-        tags = meta.get("tags") if isinstance(meta.get("tags"), list) else []
+        tags = _as_str_list(meta.get("tags"))
         store.capture(
             title=str(row["title"]),
             body=str(row["content"]),
@@ -132,7 +133,7 @@ def import_vault(
             entry_type=str(row["type"]),
             namespace=str(row["namespace"] if "namespace" in row.keys() else "vault"),
             url=url,
-            tags=[str(t) for t in tags],
+            tags=tags,
             metadata=meta,
         )
         n += 1

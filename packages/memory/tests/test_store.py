@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from cortex_memory.store import MemoryStore
 
 
-def test_capture_and_search(tmp_path) -> None:
+def test_capture_and_search(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "m.db")
     try:
         eid = store.capture(
@@ -26,7 +28,7 @@ def test_capture_and_search(tmp_path) -> None:
         store.close()
 
 
-def test_assemble_budget(tmp_path) -> None:
+def test_assemble_budget(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "m.db")
     try:
         for i in range(5):
