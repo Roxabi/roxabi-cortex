@@ -1,10 +1,66 @@
 #!/usr/bin/env bash
 # Canonical source: plugins/dev-core/tools/ — do not edit project-side copies directly
-# Check that no Python source file exceeds the configured line cap (tests excluded).
+# Check that no source file exceeds the configured line cap (tests excluded).
 # Known exceptions are listed in the exemptions file — each must have a tracking issue.
+# Exemption lines may declare a local cap: "# <N> lines" — the file must not exceed N.
+# Exemptions without a declared count are back-compat: full bypass (no cap enforced).
 # Configuration is read from tools/qg.conf if present (seeded from stack.yml by
 # /release-setup); defaults below apply when the file is absent.
+#
+# Opt-out (explicit only — a missing directory is never a pass):
+#   QG_FILE_LENGTH_DISABLE=1   this repository is not subject to the file-length gate.
+#   Accepted values: 1, true, yes (case-insensitive). Unset, empty, or 0 = gate applies.
+#   Set it in the environment, or in tools/qg.conf so a non-empty export still wins:
+#     : "${QG_FILE_LENGTH_DISABLE:=1}"
+#   To point the gate at another tree instead, set QG_FILE_ROOT to an existing directory.
+#   Without either, a missing QG_FILE_ROOT (default src/) is a hard failure that names
+#   the expected path and this opt-out.
+#
+# --self-test  Prove the gate can fail. Builds a violation in a temp git repo, re-invokes
+#   this script, and exits 0 only if that invocation exits 1. Never touches the work tree.
+#
+# SLOC mode (opt-in, back-compat):
+#   QG_FILE_METRIC=sloc  — count source lines only (excludes blanks, comments, docstrings)
+#   QG_FILE_EXTS        — space-separated file extensions to scan (default: "py")
+#   QG_FILE_COUNTER     — counter backend: wc | radon | sloc-npm (default: wc)
+# When QG_FILE_METRIC is absent or "raw", behaviour is IDENTICAL to the original script.
 set -euo pipefail
+
+# Resolve the lib dir relative to this script (beside it: canonical plugins/dev-core/tools/
+# or the project-side tools/ copy) BEFORE cd changes the working directory.
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Prove the comparison can fail. Isolated temp git repo; the child cds there, so the
+# real work tree and its qg.conf are never read or written.
+self_test() {
+    local tmp rc=0
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' RETURN
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git -C "$tmp" init -q
+    mkdir -p "$tmp/src"
+    printf 'line\nline\nline\nline\n' > "$tmp/src/over.py"
+    (
+        cd "$tmp" && \
+        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u QG_FILE_LENGTH_DISABLE \
+            QG_FILE_MAX=3 \
+            QG_FILE_ROOT="$tmp/src" \
+            QG_FILE_METRIC=raw \
+            QG_FILE_EXEMPTIONS="$tmp/no-exemptions.txt" \
+            "$LIB_DIR/check_file_length.sh"
+    ) || rc=$?
+    if [ "$rc" -ne 1 ]; then
+        echo "ERROR: check_file_length --self-test: expected exit 1 on a file over the cap, got $rc" >&2
+        exit 1
+    fi
+    exit 0
+}
+
+for _arg in "$@"; do
+    if [ "$_arg" = "--self-test" ]; then
+        self_test
+    fi
+done
+
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -15,29 +71,211 @@ cd "$(git rev-parse --show-toplevel)"
 MAX="${QG_FILE_MAX:-300}"
 FIND_ROOT="${QG_FILE_ROOT:-src/}"
 EXEMPT_FILE="${QG_FILE_EXEMPTIONS:-tools/file_exemptions.txt}"
+METRIC="${QG_FILE_METRIC:-raw}"
+EXTS="${QG_FILE_EXTS:-py}"
+COUNTER="${QG_FILE_COUNTER:-wc}"
+QG_EXEMPT_UNIT="lines"
 FAIL=0
 
-# src/ absent is not a hard error — skip with warning rather than false-green exit 0.
-if [ ! -d "$FIND_ROOT" ]; then
-    echo "WARN: $FIND_ROOT not found, skipping check_file_length" >&2
-    exit 0
-fi
+# Shared exemption helpers (is_exempt, exempt_cap) — parameterized by $QG_EXEMPT_UNIT.
+# shellcheck source=check_lib.sh
+. "$LIB_DIR/check_lib.sh"
 
-is_exempt() {
-    [ ! -f "$EXEMPT_FILE" ] && return 1
-    # Exact match on the first whitespace-delimited field — no regex, no escaping,
-    # left-anchored (awk field split) so a path substring elsewhere on the line
-    # cannot cause a false positive. Exemption format: '<path> <issue-url>'.
-    awk -v p="$1" '$1 == p { found = 1 } END { exit !found }' "$EXEMPT_FILE"
+# Missing scan root is a hard failure unless the operator opted out. See header.
+require_scan_root QG_FILE_LENGTH_DISABLE QG_FILE_ROOT check_file_length
+
+# Guard: exemption paths must not contain spaces (shared helper from check_lib.sh).
+assert_exempt_no_spaces
+
+# ---------------------------------------------------------------------------
+# Tool availability check — exit 2 (script error) when metric=sloc but the
+# required counter tool is absent. Silent fallback to raw is FORBIDDEN because
+# it would silently mis-measure files (counting raw lines instead of SLOC).
+# ---------------------------------------------------------------------------
+check_counter_available() {
+    case "$COUNTER" in
+        radon)
+            if ! uv run radon --version >/dev/null 2>&1; then
+                echo "ERROR: metric=sloc counter=radon but radon is not available." >&2
+                echo "Install with: uv add --group dev radon" >&2
+                exit 2
+            fi
+            ;;
+        sloc-npm)
+            if ! command -v node >/dev/null 2>&1; then
+                echo "ERROR: metric=sloc counter=sloc-npm but node is not available." >&2
+                echo "node + npx are required for sloc-npm counter." >&2
+                exit 2
+            fi
+            if ! command -v npx >/dev/null 2>&1; then
+                echo "ERROR: metric=sloc counter=sloc-npm but npx is not available." >&2
+                echo "node + npx are required for sloc-npm counter." >&2
+                exit 2
+            fi
+            if ! npx -y sloc --help >/dev/null 2>&1; then
+                echo "ERROR: metric=sloc counter=sloc-npm but 'npx -y sloc' failed." >&2
+                echo "Ensure node + npx are available and network access is allowed for npx -y." >&2
+                exit 2
+            fi
+            ;;
+        wc)
+            # wc is always available
+            ;;
+        *)
+            echo "ERROR: unknown QG_FILE_COUNTER value: '$COUNTER' (expected: wc | radon | sloc-npm)" >&2
+            exit 2
+            ;;
+    esac
 }
 
-while IFS= read -r -d '' f; do
-    is_exempt "$f" && continue
-    LINES=$(wc -l < "$f")
-    if [ "$LINES" -gt "$MAX" ]; then
-        echo "$f - $LINES lines (max $MAX)"
-        FAIL=1
+# ---------------------------------------------------------------------------
+# Build the find arguments array from QG_FILE_EXTS (space-separated).
+# Populates the global FIND_ARGS array.
+# Single ext  → -name "*.py"
+# Multiple    → \( -name "*.ts" -o -name "*.js" \)
+# Portable: bash 3.2 + mawk safe; no eval.
+# ---------------------------------------------------------------------------
+build_find_args() {
+    local _ext _first=1 _count=0
+    for _ext in $EXTS; do _count=$((_count + 1)); done
+
+    FIND_ARGS=("$FIND_ROOT" "-type" "f")
+
+    if [ "$_count" -eq 1 ]; then
+        for _ext in $EXTS; do
+            FIND_ARGS+=("-name" "*.$_ext")
+        done
+    else
+        FIND_ARGS+=("(")
+        for _ext in $EXTS; do
+            if [ "$_first" -eq 1 ]; then
+                _first=0
+                FIND_ARGS+=("-name" "*.$_ext")
+            else
+                FIND_ARGS+=("-o" "-name" "*.$_ext")
+            fi
+        done
+        FIND_ARGS+=(")")
     fi
-done < <(find "$FIND_ROOT" -name "*.py" -print0)
+}
+
+# ---------------------------------------------------------------------------
+# Build a TAB-delimited map file "path<TAB>sloc_count" by running the counter
+# ONCE over the entire tree. Efficient: O(1) tool invocations vs O(N) per file.
+# ---------------------------------------------------------------------------
+build_sloc_map() {
+    local _map="$1"
+    case "$COUNTER" in
+        radon)
+            # uv run radon raw -j <root> → JSON {path: {sloc:N, ...}}
+            uv run radon raw -j "$FIND_ROOT" 2>/dev/null \
+                | uv run python -c '
+import sys, json
+data = json.load(sys.stdin)
+for path, metrics in data.items():
+    print(path + "\t" + str(metrics.get("sloc", 0)))
+' > "$_map"
+            ;;
+        sloc-npm)
+            # Collect matching files, pass to sloc, parse per-file source count.
+            local _flist
+            _flist=$(mktemp)
+            while IFS= read -r -d '' _f; do
+                printf '%s\n' "$_f"
+            done < <(find "${FIND_ARGS[@]}" -print0) > "$_flist"
+
+            if [ ! -s "$_flist" ]; then
+                rm -f "$_flist"
+                return 0
+            fi
+
+            # npx -y sloc --format json <files...> → {files:[{path,stats:{source:N}}]}
+            # xargs handles arbitrarily long file lists via implicit chunking.
+            xargs npx -y sloc --format json < "$_flist" 2>/dev/null \
+                | node -e '
+var d="";
+process.stdin.on("data",function(c){d+=c;});
+process.stdin.on("end",function(){
+    var j=JSON.parse(d);
+    (j.files||[]).forEach(function(f){
+        process.stdout.write(f.path+"\t"+((f.stats&&f.stats.source)||0)+"\n");
+    });
+});
+' > "$_map"
+            rm -f "$_flist"
+            ;;
+    esac
+}
+
+# Look up a file path in the sloc map (exact first-field match, TAB separator).
+lookup_sloc() {
+    local _map="$1" _path="$2"
+    P="$_path" awk -F'\t' '$1 == ENVIRON["P"] { print $2; exit }' "$_map"
+}
+
+# ---------------------------------------------------------------------------
+# Main gate loop
+# ---------------------------------------------------------------------------
+
+if [ "$METRIC" = "sloc" ]; then
+    check_counter_available
+
+    # Build find args once (used both for map construction and the gate loop)
+    build_find_args
+
+    SLOC_MAP=$(mktemp)
+    # shellcheck disable=SC2064
+    trap "rm -f $SLOC_MAP" EXIT
+
+    build_sloc_map "$SLOC_MAP"
+
+    while IFS= read -r -d '' f; do
+        if [ "$COUNTER" = "wc" ]; then
+            LINES=$(wc -l < "$f")
+        else
+            LINES=$(lookup_sloc "$SLOC_MAP" "$f")
+            if [ -z "$LINES" ]; then
+                echo "WARN: $f not found in SLOC map (counter=$COUNTER); skipping" >&2
+                continue
+            fi
+        fi
+
+        if is_exempt "$f"; then
+            CAP=$(exempt_cap "$f")
+            if [ -n "$CAP" ] && [ "$LINES" -gt "$CAP" ]; then
+                echo "$f - $LINES lines (exceeds declared exemption cap of $CAP — refactor or update exemption with new count and rationale)"
+                FAIL=1
+            fi
+            # No declared cap → back-compat full bypass; silently continue.
+            continue
+        fi
+        if [ "$LINES" -gt "$MAX" ]; then
+            echo "$f - $LINES lines (max $MAX)"
+            FAIL=1
+        fi
+    done < <(find "${FIND_ARGS[@]}" -print0)
+
+    rm -f "$SLOC_MAP"
+
+else
+    # raw mode (default): wc -l on *.py — IDENTICAL to original behaviour.
+    # QG_FILE_EXTS and QG_FILE_COUNTER are ignored in raw mode.
+    while IFS= read -r -d '' f; do
+        LINES=$(wc -l < "$f")
+        if is_exempt "$f"; then
+            CAP=$(exempt_cap "$f")
+            if [ -n "$CAP" ] && [ "$LINES" -gt "$CAP" ]; then
+                echo "$f - $LINES lines (exceeds declared exemption cap of $CAP — refactor or update exemption with new count and rationale)"
+                FAIL=1
+            fi
+            # No declared cap → back-compat full bypass; silently continue.
+            continue
+        fi
+        if [ "$LINES" -gt "$MAX" ]; then
+            echo "$f - $LINES lines (max $MAX)"
+            FAIL=1
+        fi
+    done < <(find "$FIND_ROOT" -name "*.py" -print0)
+fi
 
 exit $FAIL
